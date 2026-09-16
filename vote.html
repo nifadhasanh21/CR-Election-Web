@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cast Your Vote</title>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+    <div class="app-container" style="display: flex; justify-content: center; align-items: center; min-height: 90vh;">
+        <div style="width: 100%; max-width: 520px; background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(25px); border: 1px solid rgba(0,0,0,0.08); border-radius: 18px; padding: 32px; box-shadow: 0 8px 32px rgba(0,0,0,0.04); position: relative;">
+            
+            <!-- Top Back Button -->
+            <a href="index.html" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #007aff; font-size: 13px; font-weight: 600; margin-bottom: 16px;">
+                &#8592; Back to Dashboard
+            </a>
+
+            <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 6px;">Cast Your Vote</h2>
+            <p style="font-size: 13px; color: #6e6e73; margin-bottom: 24px;">Select your 2 preferred CR candidates.</p>
+
+            <form id="voter_form">
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; color: #6e6e73;">Full Name</label>
+                    <input type="text" id="voter_name" class="input-ios" placeholder="Enter your full name" required>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; color: #6e6e73;">Student ID</label>
+                    <input type="text" id="voter_roll" class="input-ios" value="242-35-" placeholder="e.g. 242-35-020" required>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; color: #6e6e73;">Voting Secret Token</label>
+                    <input type="text" id="voter_token" class="input-ios" placeholder="Enter token provided by Admin" required autocomplete="off">
+                </div>
+                
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; color: #6e6e73;">CR Preference 1</label>
+                    <select id="cr1_select" class="select-ios" required>
+                        <option value="">Select Primary CR Choice</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; color: #6e6e73;">CR Preference 2</label>
+                    <select id="cr2_select" class="select-ios">
+                        <option value="">Select Secondary CR Choice (Optional)</option>
+                    </select>
+                </div>
+
+                <div id="status_msg" style="font-size: 12px; margin-bottom: 14px; font-weight: 600;"></div>
+
+                <button type="submit" id="submit_vote_btn" class="btn-ios" style="width: 100%;">Submit Vote</button>
+                
+                <!-- Bottom Back / Cancel Link -->
+                <a href="index.html" class="btn-ios btn-ios-secondary" style="width: 100%; margin-top: 8px; text-align: center; text-decoration: none; display: block; box-sizing: border-box;">Cancel & Return</a>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="assets/js/vote.js"></script>
+</body>
+</html>

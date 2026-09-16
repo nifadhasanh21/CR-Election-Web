@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CR Election Dashboard</title>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="glass-header">
+            <div>
+                <div class="brand-title">CR Election Portal</div>
+                <div class="brand-subtitle">Section Representative Live Voting</div>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <div class="status-pill">
+                    <span class="dot" id="live_dot"></span>
+                    <span id="live_status_text">OFFLINE</span>
+                </div>
+                <a href="vote.html" class="btn-ios" id="vote_btn" style="display:none;">Cast Vote</a>
+            </div>
+        </header>
+
+        <main class="candidate-grid" id="candidate_container">
+            <!-- Dynamically Loaded 3-Cards Per Row -->
+        </main>
+    </div>
+
+    <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>
