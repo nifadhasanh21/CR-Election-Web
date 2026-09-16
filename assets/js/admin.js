@@ -20,7 +20,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let isLiveStatus = false;
 
-    // Set Default Prefix for Token Student ID Input
     if (tokenStudentIdInput) {
         tokenStudentIdInput.value = '242-35-';
     }
@@ -112,7 +111,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             tokenTableBody.appendChild(tr);
         });
 
-        // Copy Event
         document.querySelectorAll('.copy-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const tokenVal = e.target.getAttribute('data-token');
@@ -121,7 +119,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
 
-        // Delete Event
         document.querySelectorAll('.delete-token-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 if (!confirm('Are you sure you want to delete this token record?')) return;
@@ -138,31 +135,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         const studentId = tokenStudentIdInput.value.trim();
         if (!studentId || studentId === '242-35-') return alert('Please complete the Student ID.');
 
-        // 1. Check if the Student ID exists in the registered database list
         const { data: existingRecord, error: checkError } = await supabase
             .from('tokens')
             .select('*')
             .eq('student_id', studentId)
             .maybeSingle();
 
-        if (checkError) {
-            alert('Database query error: ' + checkError.message);
-            return;
-        }
+        if (checkError) return alert('Database error: ' + checkError.message);
 
-        // STRICT CHECK: If ID is not pre-registered in the database, block token generation
         if (!existingRecord) {
             alert(`Error: Student ID "${studentId}" is NOT in the registered voter list!`);
             return;
         }
 
-        // 2. If ID already has an active token assigned
         if (existingRecord.token && existingRecord.token !== '') {
             alert(`Token already generated for ${studentId}: ${existingRecord.token}`);
             return;
         }
 
-        // 3. Generate token ONLY for valid registered ID
         const newToken = generateRandomToken();
         const { error: updateError } = await supabase
             .from('tokens')
@@ -243,7 +233,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // 4. VOTER RECORDS
+    // 4. VOTER RECORDS WITH FIXED VOTE REVOCATION
     async function loadVoterRecords() {
         if (!voterTableBody) return;
 
@@ -267,15 +257,62 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         document.querySelectorAll('.revoke-vote-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
-                if (!confirm('Revoking vote will reset token & allow student to re-vote. Proceed?')) return;
+                if (!confirm('Revoking vote will deduct candidate votes & reset token. Proceed?')) return;
                 
                 const voteId = e.target.getAttribute('data-id');
                 const voterRoll = e.target.getAttribute('data-voter-id');
 
+                // 1. Fetch the vote details to know which candidates were voted for
+                const { data: voteDetails, error: fetchErr } = await supabase
+                    .from('votes')
+                    .select('*')
+                    .eq('id', voteId)
+                    .single();
+
+                if (fetchErr || !voteDetails) {
+                    alert('Failed to find vote details.');
+                    return;
+                }
+
+                // 2. Deduct vote from CR 1 candidate
+                if (voteDetails.cr1_candidate_id) {
+                    const { data: cand1 } = await supabase
+                        .from('candidates')
+                        .select('vote_count')
+                        .eq('id', voteDetails.cr1_candidate_id)
+                        .single();
+
+                    if (cand1 && cand1.vote_count > 0) {
+                        await supabase
+                            .from('candidates')
+                            .update({ vote_count: cand1.vote_count - 1 })
+                            .eq('id', voteDetails.cr1_candidate_id);
+                    }
+                }
+
+                // 3. Deduct vote from CR 2 candidate (if selected)
+                if (voteDetails.cr2_candidate_id) {
+                    const { data: cand2 } = await supabase
+                        .from('candidates')
+                        .select('vote_count')
+                        .eq('id', voteDetails.cr2_candidate_id)
+                        .single();
+
+                    if (cand2 && cand2.vote_count > 0) {
+                        await supabase
+                            .from('candidates')
+                            .update({ vote_count: cand2.vote_count - 1 })
+                            .eq('id', voteDetails.cr2_candidate_id);
+                    }
+                }
+
+                // 4. Delete the vote record & reset token state
                 await supabase.from('votes').delete().eq('id', voteId);
                 await supabase.from('tokens').update({ is_used: false }).eq('student_id', voterRoll);
 
-                alert(`Vote revoked for ${voterRoll}. Token is active again.`);
+                alert(`Vote revoked and count updated for ${voterRoll}!`);
+                
+                // Refresh UI
                 loadVoterRecords();
                 loadTokens();
                 loadCandidates();
