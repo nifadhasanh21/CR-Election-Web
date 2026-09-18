@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const candidateForm = document.getElementById('candidate_form');
     const candNameInput = document.getElementById('cand_name');
     const candRollInput = document.getElementById('cand_roll');
+    const candImageInput = document.getElementById('cand_image');
     const candGenderInput = document.getElementById('cand_gender');
     const candSpeechInput = document.getElementById('cand_speech');
     const candidateTableBody = document.getElementById('candidate_table_body');
@@ -24,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         tokenStudentIdInput.value = '242-35-';
     }
 
-    // 1. ELECTION CONTROLS
+    // 1. ELECTION CONTROLS (Timezone Fixed)
     async function loadSettings() {
         const { data: settings, error } = await supabase.from('settings').select('*').eq('id', 1).single();
         if (error || !settings) return;
@@ -33,8 +34,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateLiveButtonUI();
 
         if (settings.start_time) {
-            const dateObj = new Date(settings.start_time);
-            startDateInput.value = dateObj.toISOString().slice(0, 16);
+            const localDate = new Date(settings.start_time);
+            localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+            startDateInput.value = localDate.toISOString().slice(0, 16);
         }
     }
 
@@ -186,10 +188,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         candidateTableBody.innerHTML = '';
 
         candidates.forEach(c => {
-            const avatarSrc = c.gender === 'female' ? '../assets/images/female.png' : '../assets/images/male.png';
+            const avatarSrc = c.image_name 
+                ? `../assets/images/${c.image_name}` 
+                : (c.gender === 'female' ? '../assets/images/female.png' : '../assets/images/male.png');
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><img src="${avatarSrc}" style="width: 32px; height: 32px; border-radius: 50%;"></td>
+                <td><img src="${avatarSrc}" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;"></td>
                 <td><strong>${c.name}</strong></td>
                 <td>${c.roll_id}</td>
                 <td><strong>${c.vote_count || 0}</strong></td>
@@ -215,12 +220,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const name = candNameInput.value.trim();
         const roll = candRollInput.value.trim();
+        const imageName = candImageInput.value.trim();
         const gender = candGenderInput.value;
         const speech = candSpeechInput.value.trim();
 
         const { error } = await supabase.from('candidates').insert([{
             name: name,
             roll_id: roll,
+            image_name: imageName || null,
             gender: gender,
             speech: speech,
             vote_count: 0
@@ -262,7 +269,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const voteId = e.target.getAttribute('data-id');
                 const voterRoll = e.target.getAttribute('data-voter-id');
 
-                // 1. Fetch the vote details to know which candidates were voted for
                 const { data: voteDetails, error: fetchErr } = await supabase
                     .from('votes')
                     .select('*')
@@ -274,7 +280,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     return;
                 }
 
-                // 2. Deduct vote from CR 1 candidate
                 if (voteDetails.cr1_candidate_id) {
                     const { data: cand1 } = await supabase
                         .from('candidates')
@@ -290,7 +295,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
 
-                // 3. Deduct vote from CR 2 candidate (if selected)
                 if (voteDetails.cr2_candidate_id) {
                     const { data: cand2 } = await supabase
                         .from('candidates')
@@ -306,13 +310,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
 
-                // 4. Delete the vote record & reset token state
                 await supabase.from('votes').delete().eq('id', voteId);
                 await supabase.from('tokens').update({ is_used: false }).eq('student_id', voterRoll);
 
                 alert(`Vote revoked and count updated for ${voterRoll}!`);
                 
-                // Refresh UI
                 loadVoterRecords();
                 loadTokens();
                 loadCandidates();
