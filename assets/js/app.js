@@ -8,33 +8,34 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function checkStatus() {
         try {
-            const { data: settings } = await supabase.from('settings').select('*').eq('id', 1).single();
+            const { data: settings, error } = await supabase.from('settings').select('*').eq('id', 1).maybeSingle();
             
-            if (settings) {
-                const now = new Date().getTime();
-                const startTime = settings.start_time ? new Date(settings.start_time).getTime() : null;
+            if (error || !settings) return;
 
-                const isLive = settings.is_live || (startTime && now >= startTime);
+            const now = new Date().getTime();
+            const startTime = settings.start_time ? new Date(settings.start_time).getTime() : null;
 
-                if (isLive) {
-                    if (statusText) statusText.innerText = 'LIVE ELECTION';
-                    if (statusDot) statusDot.classList.add('live');
-                    if (voteBtn) voteBtn.style.display = 'inline-flex';
+            // Strict checking: manually turned live OR time schedule reached
+            const isLive = Boolean(settings.is_live) || (startTime !== null && now >= startTime);
+
+            if (isLive) {
+                if (statusText) statusText.innerText = 'LIVE ELECTION';
+                if (statusDot) statusDot.classList.add('live');
+                if (voteBtn) voteBtn.style.display = 'inline-flex';
+            } else {
+                if (statusDot) statusDot.classList.remove('live');
+                if (voteBtn) voteBtn.style.display = 'none';
+
+                if (settings.start_time) {
+                    const startTimeDate = new Date(settings.start_time);
+                    const formattedTime = startTimeDate.toLocaleString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                    if (statusText) statusText.innerText = `STARTS AT ${formattedTime}`;
                 } else {
-                    if (statusDot) statusDot.classList.remove('live');
-                    if (voteBtn) voteBtn.style.display = 'none';
-
-                    if (settings.start_time) {
-                        const startTimeDate = new Date(settings.start_time);
-                        const formattedTime = startTimeDate.toLocaleString('en-US', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: true
-                        });
-                        if (statusText) statusText.innerText = `STARTS AT ${formattedTime}`;
-                    } else {
-                        if (statusText) statusText.innerText = 'OFFLINE';
-                    }
+                    if (statusText) statusText.innerText = 'OFFLINE';
                 }
             }
         } catch (e) {
@@ -85,11 +86,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkStatus();
     await loadCandidates();
 
-    // Polling & Realtime updates
-    setInterval(checkStatus, 3000);
+    setInterval(checkStatus, 2000);
     setInterval(loadCandidates, 3000);
 
-    // Supabase Realtime Listener
     supabase
         .channel('public:candidates')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'candidates' }, () => {

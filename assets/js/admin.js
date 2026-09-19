@@ -56,21 +56,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 1. ELECTION CONTROLS
     async function loadSettings() {
-        const { data: settings, error } = await supabase.from('settings').select('*').eq('id', 1).single();
+        const { data: settings, error } = await supabase.from('settings').select('*').eq('id', 1).maybeSingle();
         if (error || !settings) return;
 
-        isLiveStatus = settings.is_live;
+        isLiveStatus = Boolean(settings.is_live);
         updateLiveButtonUI();
 
         if (settings.start_time && startDateInput) {
-            const localDate = new Date(settings.start_time);
-            const year = localDate.getFullYear();
-            const month = String(localDate.getMonth() + 1).padStart(2, '0');
-            const day = String(localDate.getDate()).padStart(2, '0');
-            const hours = String(localDate.getHours()).padStart(2, '0');
-            const minutes = String(localDate.getMinutes()).padStart(2, '0');
-            
-            startDateInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+            if (document.activeElement !== startDateInput) {
+                const localDate = new Date(settings.start_time);
+                if (!isNaN(localDate.getTime())) {
+                    const year = localDate.getFullYear();
+                    const month = String(localDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(localDate.getDate()).padStart(2, '0');
+                    const hours = String(localDate.getHours()).padStart(2, '0');
+                    const minutes = String(localDate.getMinutes()).padStart(2, '0');
+                    startDateInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+                }
+            }
         }
     }
 
@@ -88,24 +91,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     toggleLiveBtn?.addEventListener('click', async () => {
-        isLiveStatus = !isLiveStatus;
-        const { error } = await supabase.from('settings').update({ is_live: isLiveStatus }).eq('id', 1);
-        if (error) {
-            alert('Failed to update status');
-            isLiveStatus = !isLiveStatus;
-        }
+    const nextStatus = !isLiveStatus;
+    const { error } = await supabase.from('settings').update({ is_live: nextStatus }).eq('id', 1);
+    if (error) {
+        alert('Failed to update status: ' + error.message);
+    } else {
+        isLiveStatus = nextStatus;
         updateLiveButtonUI();
-    });
+    }
+});
 
     saveDateBtn?.addEventListener('click', async () => {
         const selectedDate = startDateInput.value;
         if (!selectedDate) return alert('Please select a date and time.');
 
         const isoDate = new Date(selectedDate).toISOString();
-        const { error } = await supabase.from('settings').update({ start_time: isoDate }).eq('id', 1);
+        const { error } = await supabase.from('settings').upsert({ id: 1, start_time: isoDate });
 
-        if (error) alert('Error saving date: ' + error.message);
-        else alert('Start schedule updated successfully!');
+        if (error) {
+            alert('Error saving date: ' + error.message);
+        } else {
+            alert('Start schedule updated successfully!');
+            await loadSettings();
+        }
     });
 
     // 2. TOKEN GENERATION & MANAGEMENT
@@ -374,7 +382,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadCandidates();
     await loadVoterRecords();
 
-    // Live Sync on Admin Panel
+    setInterval(loadSettings, 4000);
     setInterval(loadVoterRecords, 3000);
     setInterval(loadCandidates, 3000);
     setInterval(loadTokens, 3000);
