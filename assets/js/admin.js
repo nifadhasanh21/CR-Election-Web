@@ -1,6 +1,38 @@
 import { supabase } from './supabase.js';
 
+// ADMIN SECRET ACCESS KEY (Apni chaitile password-ta ekhane change korte paren)
+const ADMIN_PASSKEY = "admincr27";
+
+function enforceAdminAuth() {
+    let savedKey = localStorage.getItem('admin_session_key');
+
+    if (savedKey !== ADMIN_PASSKEY) {
+        const userInput = prompt("Enter Admin Passkey to Login:");
+        if (userInput === ADMIN_PASSKEY) {
+            localStorage.setItem('admin_session_key', ADMIN_PASSKEY);
+            alert("Access Granted!");
+        } else {
+            alert("Unauthorized Access! Redirecting...");
+            window.location.href = "../index.html";
+            throw new Error("Unauthorized access blocked");
+        }
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+    // 0. Enforce Secure Passkey Verification
+    enforceAdminAuth();
+
+    // Logout Handler
+    const logoutBtn = document.getElementById('admin_logout_btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('admin_session_key');
+            alert('Logged out successfully!');
+            window.location.href = '../index.html';
+        });
+    }
+
     const startDateInput = document.getElementById('start_date_input');
     const saveDateBtn = document.getElementById('save_date_btn');
     const toggleLiveBtn = document.getElementById('toggle_live_btn');
@@ -25,7 +57,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         tokenStudentIdInput.value = '242-35-';
     }
 
-    // 1. ELECTION CONTROLS (Timezone Handling Fixed)
+    // 1. ELECTION CONTROLS
     async function loadSettings() {
         const { data: settings, error } = await supabase.from('settings').select('*').eq('id', 1).single();
         if (error || !settings) return;
@@ -41,7 +73,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const hours = String(localDate.getHours()).padStart(2, '0');
             const minutes = String(localDate.getMinutes()).padStart(2, '0');
             
-            // local input-e format onusare set
             startDateInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
         }
     }
@@ -72,7 +103,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const selectedDate = startDateInput.value;
         if (!selectedDate) return alert('Please select a date and time.');
 
-        // Exact ISO Timezone string format-e save
         const isoDate = new Date(selectedDate).toISOString();
         const { error } = await supabase.from('settings').update({ start_time: isoDate }).eq('id', 1);
 
@@ -247,7 +277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // 4. VOTER RECORDS WITH FIXED VOTE REVOCATION
+    // 4. VOTER RECORDS WITH VOTE REVOCATION
     async function loadVoterRecords() {
         if (!voterTableBody) return;
 

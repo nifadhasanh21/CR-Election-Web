@@ -41,12 +41,15 @@
 <body>
     <div class="app-container">
         <!-- Header -->
-        <header class="glass-header">
+        <header class="glass-header" style="display: flex; justify-content: space-between; align-items: center;">
             <div>
                 <div class="brand-title">Admin Management Console</div>
                 <div class="brand-subtitle">CR Election Control Panel</div>
             </div>
-            <a href="../index.html" class="btn-ios btn-ios-secondary">View Dashboard</a>
+            <div style="display: flex; gap: 10px;">
+                <a href="../index.html" class="btn-ios btn-ios-secondary">View Dashboard</a>
+                <button id="admin_logout_btn" class="btn-ios" style="background: #ff3b30; color: white;">Logout</button>
+            </div>
         </header>
 
         <!-- Top Row: Election Status & Add Candidate -->
