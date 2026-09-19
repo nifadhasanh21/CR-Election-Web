@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         tokenStudentIdInput.value = '242-35-';
     }
 
-    // 1. ELECTION CONTROLS (Timezone Fixed)
+    // 1. ELECTION CONTROLS (Timezone Handling Fixed)
     async function loadSettings() {
         const { data: settings, error } = await supabase.from('settings').select('*').eq('id', 1).single();
         if (error || !settings) return;
@@ -35,8 +35,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (settings.start_time) {
             const localDate = new Date(settings.start_time);
-            localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
-            startDateInput.value = localDate.toISOString().slice(0, 16);
+            const year = localDate.getFullYear();
+            const month = String(localDate.getMonth() + 1).padStart(2, '0');
+            const day = String(localDate.getDate()).padStart(2, '0');
+            const hours = String(localDate.getHours()).padStart(2, '0');
+            const minutes = String(localDate.getMinutes()).padStart(2, '0');
+            
+            // local input-e format onusare set
+            startDateInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
         }
     }
 
@@ -66,6 +72,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const selectedDate = startDateInput.value;
         if (!selectedDate) return alert('Please select a date and time.');
 
+        // Exact ISO Timezone string format-e save
         const isoDate = new Date(selectedDate).toISOString();
         const { error } = await supabase.from('settings').update({ start_time: isoDate }).eq('id', 1);
 

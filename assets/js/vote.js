@@ -16,9 +16,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         statusMsg.textContent = text;
     }
 
-    // 1. Check Election Live Status
+    // 1. Check Election Live Status (Timezone & Schedule Aware)
     const { data: settings } = await supabase.from('settings').select('*').eq('id', 1).single();
-    if (!settings || !settings.is_live) {
+    
+    const now = new Date().getTime();
+    const startTime = settings?.start_time ? new Date(settings.start_time).getTime() : null;
+    
+    // settings.is_live সত্যি হলে অথবা বর্তমান সময় start_time পার/সমান হয়ে গেলে ভোট এলাউ করবে
+    const isVotingActive = settings && (settings.is_live || (startTime && now >= startTime));
+
+    if (!isVotingActive) {
         alert('Voting is currently closed or offline.');
         window.location.href = 'index.html';
         return;

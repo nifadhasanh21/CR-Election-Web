@@ -10,7 +10,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const { data: settings } = await supabase.from('settings').select('*').eq('id', 1).single();
         
         if (settings) {
-            if (settings.is_live) {
+            const now = new Date().getTime();
+            const startTime = settings.start_time ? new Date(settings.start_time).getTime() : null;
+
+            // ১. Admin is_live ON করলে অথবা ২. নির্ধারিত সময় পার হয়ে গেলে Auto Live হবে
+            const isLive = settings.is_live || (startTime && now >= startTime);
+
+            if (isLive) {
                 statusText.innerText = 'LIVE ELECTION';
                 statusDot.classList.add('live');
                 if (voteBtn) voteBtn.style.display = 'inline-flex';
@@ -19,8 +25,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (voteBtn) voteBtn.style.display = 'none';
 
                 if (settings.start_time) {
-                    const startTime = new Date(settings.start_time);
-                    const formattedTime = startTime.toLocaleString('en-US', {
+                    const startTimeDate = new Date(settings.start_time);
+                    const formattedTime = startTimeDate.toLocaleString('en-US', {
                         hour: '2-digit',
                         minute: '2-digit',
                         hour12: true
@@ -55,6 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             card.style.alignItems = 'center';
             card.style.textAlign = 'center';
 
+            // পূর্বের আসল ফটো ফ্রেম ডিজাইন (object-fit: cover)
             card.innerHTML = `
                 <div class="avatar-wrapper" style="width: 180px; height: 180px; margin: 0 auto 12px auto; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #f2f2f7; border: 1px solid rgba(0, 0, 0, 0.08); box-shadow: 0 4px 10px rgba(0,0,0,0.06);">
                     <img src="${avatarImg}" alt="${c.name}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
@@ -74,4 +81,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await checkStatus();
     await loadCandidates();
+
+    // প্রতি ৫ সেকেন্ড পর পর অটো টাইমার ও স্ট্যাটাস চেক করবে
+    setInterval(checkStatus, 5000);
 });
