@@ -1,6 +1,5 @@
 import { supabase } from './supabase.js';
 
-// ADMIN SECRET ACCESS KEY (Apni chaitile password-ta ekhane change korte paren)
 const ADMIN_PASSKEY = "admincr27";
 
 function enforceAdminAuth() {
@@ -20,10 +19,8 @@ function enforceAdminAuth() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // 0. Enforce Secure Passkey Verification
     enforceAdminAuth();
 
-    // Logout Handler
     const logoutBtn = document.getElementById('admin_logout_btn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
@@ -65,7 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         isLiveStatus = settings.is_live;
         updateLiveButtonUI();
 
-        if (settings.start_time) {
+        if (settings.start_time && startDateInput) {
             const localDate = new Date(settings.start_time);
             const year = localDate.getFullYear();
             const month = String(localDate.getMonth() + 1).padStart(2, '0');
@@ -78,6 +75,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function updateLiveButtonUI() {
+        if (!toggleLiveBtn) return;
         if (isLiveStatus) {
             toggleLiveBtn.textContent = 'Voting: LIVE';
             toggleLiveBtn.style.background = '#34c759';
@@ -277,21 +275,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // 4. VOTER RECORDS WITH VOTE REVOCATION
+    // 4. VOTER RECORDS WITH VOTE REVOCATION FIX
     async function loadVoterRecords() {
         if (!voterTableBody) return;
 
-        const { data: votes, error } = await supabase.from('votes').select('*').order('id', { ascending: false });
-        if (error) return console.error(error);
+        const { data: votes, error } = await supabase
+            .from('votes')
+            .select('*')
+            .order('submitted_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching votes:', error);
+            return;
+        }
 
         voterTableBody.innerHTML = '';
+
+        if (!votes || votes.length === 0) {
+            voterTableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #8e8e93; padding: 16px;">No votes recorded yet.</td></tr>`;
+            return;
+        }
 
         votes.forEach(v => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${v.voter_name}</td>
-                <td><strong>${v.voter_id}</strong></td>
-                <td>${new Date(v.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                <td><strong>${v.voter_name || 'N/A'}</strong></td>
+                <td><code>${v.voter_id}</code></td>
+                <td>${v.submitted_at ? new Date(v.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'N/A'}</td>
                 <td>
                     <button class="btn-ios revoke-vote-btn" data-voter-id="${v.voter_id}" data-id="${v.id}" style="padding: 4px 8px; font-size: 11px; background: #ff9500; color: white;">Revoke Vote</button>
                 </td>
@@ -350,11 +360,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await supabase.from('votes').delete().eq('id', voteId);
                 await supabase.from('tokens').update({ is_used: false }).eq('student_id', voterRoll);
 
-                alert(`Vote revoked and count updated for ${voterRoll}!`);
+                alert(`Vote revoked for ${voterRoll}!`);
                 
-                loadVoterRecords();
-                loadTokens();
-                loadCandidates();
+                await loadVoterRecords();
+                await loadTokens();
+                await loadCandidates();
             });
         });
     }
@@ -363,4 +373,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadTokens();
     await loadCandidates();
     await loadVoterRecords();
+
+    // Live Sync on Admin Panel
+    setInterval(loadVoterRecords, 3000);
+    setInterval(loadCandidates, 3000);
+    setInterval(loadTokens, 3000);
 });

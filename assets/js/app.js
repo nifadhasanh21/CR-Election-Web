@@ -7,41 +7,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     const voteBtn = document.getElementById('vote_btn');
 
     async function checkStatus() {
-        const { data: settings } = await supabase.from('settings').select('*').eq('id', 1).single();
-        
-        if (settings) {
-            const now = new Date().getTime();
-            const startTime = settings.start_time ? new Date(settings.start_time).getTime() : null;
+        try {
+            const { data: settings } = await supabase.from('settings').select('*').eq('id', 1).single();
+            
+            if (settings) {
+                const now = new Date().getTime();
+                const startTime = settings.start_time ? new Date(settings.start_time).getTime() : null;
 
-            // ১. Admin is_live ON করলে অথবা ২. নির্ধারিত সময় পার হয়ে গেলে Auto Live হবে
-            const isLive = settings.is_live || (startTime && now >= startTime);
+                const isLive = settings.is_live || (startTime && now >= startTime);
 
-            if (isLive) {
-                statusText.innerText = 'LIVE ELECTION';
-                statusDot.classList.add('live');
-                if (voteBtn) voteBtn.style.display = 'inline-flex';
-            } else {
-                statusDot.classList.remove('live');
-                if (voteBtn) voteBtn.style.display = 'none';
-
-                if (settings.start_time) {
-                    const startTimeDate = new Date(settings.start_time);
-                    const formattedTime = startTimeDate.toLocaleString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                    });
-                    statusText.innerText = `STARTS AT ${formattedTime}`;
+                if (isLive) {
+                    if (statusText) statusText.innerText = 'LIVE ELECTION';
+                    if (statusDot) statusDot.classList.add('live');
+                    if (voteBtn) voteBtn.style.display = 'inline-flex';
                 } else {
-                    statusText.innerText = 'OFFLINE';
+                    if (statusDot) statusDot.classList.remove('live');
+                    if (voteBtn) voteBtn.style.display = 'none';
+
+                    if (settings.start_time) {
+                        const startTimeDate = new Date(settings.start_time);
+                        const formattedTime = startTimeDate.toLocaleString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                        });
+                        if (statusText) statusText.innerText = `STARTS AT ${formattedTime}`;
+                    } else {
+                        if (statusText) statusText.innerText = 'OFFLINE';
+                    }
                 }
             }
+        } catch (e) {
+            console.error('Status check error:', e);
         }
     }
 
     async function loadCandidates() {
+        if (!container) return;
         const { data: candidates, error } = await supabase.from('candidates').select('*').order('created_at', { ascending: true });
-        if (error) return console.error(error);
+        if (error) return console.error('Error fetching candidates:', error);
 
         container.innerHTML = '';
         if (!candidates || candidates.length === 0) {
@@ -61,14 +65,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             card.style.alignItems = 'center';
             card.style.textAlign = 'center';
 
-            // পূর্বের আসল ফটো ফ্রেম ডিজাইন (object-fit: cover)
             card.innerHTML = `
                 <div class="avatar-wrapper" style="width: 180px; height: 180px; margin: 0 auto 12px auto; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #f2f2f7; border: 1px solid rgba(0, 0, 0, 0.08); box-shadow: 0 4px 10px rgba(0,0,0,0.06);">
                     <img src="${avatarImg}" alt="${c.name}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
                 </div>
                 <div class="candidate-name" style="font-weight:700; font-size:18px; margin-top:4px;">${c.name}</div>
                 <div class="candidate-roll" style="font-size:12px; color:var(--text-secondary); margin-top:2px;">ID: ${c.roll_id}</div>
-                <div class="candidate-speech" style="font-style:italic; font-size:13px; margin: 12px 0;">"${c.speech}"</div>
+                <div class="candidate-speech" style="font-style:italic; font-size:13px; margin: 12px 0;">"${c.speech || ''}"</div>
                 
                 <div class="vote-badge" style="width: 100%;">
                     <span>Total Votes</span>
@@ -82,6 +85,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkStatus();
     await loadCandidates();
 
-    // প্রতি ৫ সেকেন্ড পর পর অটো টাইমার ও স্ট্যাটাস চেক করবে
-    setInterval(checkStatus, 5000);
+    // Polling & Realtime updates
+    setInterval(checkStatus, 3000);
+    setInterval(loadCandidates, 3000);
+
+    // Supabase Realtime Listener
+    supabase
+        .channel('public:candidates')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'candidates' }, () => {
+            loadCandidates();
+        })
+        .subscribe();
 });

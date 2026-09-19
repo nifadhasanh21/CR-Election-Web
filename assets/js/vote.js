@@ -31,24 +31,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             if (!candidates || candidates.length === 0) {
-                cr1Select.innerHTML = '<option value="">No candidates available</option>';
-                cr2Select.innerHTML = '<option value="">No candidates available</option>';
+                if (cr1Select) cr1Select.innerHTML = '<option value="">No candidates available</option>';
+                if (cr2Select) cr2Select.innerHTML = '<option value="">No candidates available</option>';
                 return;
             }
 
-            cr1Select.innerHTML = '<option value="">Select Primary CR Choice</option>';
-            cr2Select.innerHTML = '<option value="">Select Secondary CR Choice (Optional)</option>';
+            if (cr1Select) cr1Select.innerHTML = '<option value="">Select Primary CR Choice</option>';
+            if (cr2Select) cr2Select.innerHTML = '<option value="">Select Secondary CR Choice (Optional)</option>';
 
             candidates.forEach(c => {
                 const opt1 = document.createElement('option');
                 opt1.value = c.id;
                 opt1.textContent = `${c.name} (${c.roll_id})`;
-                cr1Select.appendChild(opt1);
+                if (cr1Select) cr1Select.appendChild(opt1);
 
                 const opt2 = document.createElement('option');
                 opt2.value = c.id;
                 opt2.textContent = `${c.name} (${c.roll_id})`;
-                cr2Select.appendChild(opt2);
+                if (cr2Select) cr2Select.appendChild(opt2);
             });
         } catch (err) {
             console.error('Candidate loading exception:', err);
@@ -56,7 +56,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Load candidates right away
     await loadCandidatesForVoting();
 
     // 2. Check Election Live Status
@@ -76,18 +75,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Settings check error:', err);
     }
 
-    // Prevent selecting the same candidate twice
     cr1Select?.addEventListener('change', () => {
         const val = cr1Select.value;
-        Array.from(cr2Select.options).forEach(opt => opt.disabled = (opt.value && opt.value === val));
+        if (cr2Select) {
+            Array.from(cr2Select.options).forEach(opt => opt.disabled = (opt.value && opt.value === val));
+        }
     });
 
     cr2Select?.addEventListener('change', () => {
         const val = cr2Select.value;
-        Array.from(cr1Select.options).forEach(opt => opt.disabled = (opt.value && opt.value === val));
+        if (cr1Select) {
+            Array.from(cr1Select.options).forEach(opt => opt.disabled = (opt.value && opt.value === val));
+        }
     });
 
-    // 3. Submit Vote
+    // 3. Submit Vote Fix
     if (voterForm) {
         voterForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -95,8 +97,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const voterRoll = voterRollInput.value.trim();
             const voterName = voterNameInput.value.trim();
             const voterToken = voterTokenInput ? voterTokenInput.value.trim() : '';
-            const cr1CandidateId = cr1Select.value;
-            const cr2CandidateId = cr2Select.value || null;
+            const cr1CandidateId = cr1Select ? cr1Select.value : '';
+            const cr2CandidateId = cr2Select ? (cr2Select.value || null) : null;
 
             if (!cr1CandidateId) return showStatus('Please select at least one CR candidate.');
             if (!voterToken) return showStatus('Secret Voting Token is required!');
@@ -122,7 +124,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     throw new Error('This token has already been used!');
                 }
 
-                // Check Duplicate Vote
+                // Check Duplicate Vote in Votes table
                 const { data: existingVote } = await supabase
                     .from('votes')
                     .select('id')
@@ -133,7 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     throw new Error('Vote already registered for this Student ID.');
                 }
 
-                // Save Vote
+                // 1. Save Into Votes Table
                 const { error: voteErr } = await supabase
                     .from('votes')
                     .insert([{
@@ -144,9 +146,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         submitted_at: new Date().toISOString()
                     }]);
 
-                if (voteErr) throw new Error(voteErr.message);
+                if (voteErr) throw new Error('Database insertion failed: ' + voteErr.message);
 
-                // Increment Candidate Vote Count
+                // 2. Increment Vote Counts
                 const { data: cand1 } = await supabase.from('candidates').select('vote_count').eq('id', cr1CandidateId).single();
                 await supabase.from('candidates').update({ vote_count: (cand1?.vote_count || 0) + 1 }).eq('id', cr1CandidateId);
 
@@ -155,14 +157,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     await supabase.from('candidates').update({ vote_count: (cand2?.vote_count || 0) + 1 }).eq('id', cr2CandidateId);
                 }
 
-                // Mark Token as Used
+                // 3. Mark Token as Used
                 await supabase.from('tokens').update({ is_used: true }).eq('id', tokenData.id);
 
                 showStatus('Vote submitted successfully! Redirecting...', false);
                 
                 setTimeout(() => {
                     window.location.href = '/index.html';
-                }, 1500);
+                }, 1200);
 
             } catch (err) {
                 showStatus(err.message, true);
